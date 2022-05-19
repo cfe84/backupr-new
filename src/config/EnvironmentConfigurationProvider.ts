@@ -7,12 +7,17 @@ export class EnvironmentConfigurationProvider {
   }
 
   getToken(): FlickrToken | undefined {
-    if (!process.env.OAUTH_TOKEN || !process.env.OAUTH_TOKEN_SECRET) {
+    if (!process.env.OAUTH_TOKEN || !process.env.OAUTH_TOKEN_SECRET || !process.env.NSID) {
       return undefined
     }
     return {
       oauth_token: process.env.OAUTH_TOKEN,
       oauth_token_secret: process.env.OAUTH_TOKEN_SECRET,
+      nsid: process.env.NSID,
     }
+  }
+
+  getStore(): string | undefined {
+    return process.env.REPOSITORY
   }
 }

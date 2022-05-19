@@ -1,6 +1,7 @@
-import Flickr from "flickr-sdk";
+import Flickr, { FlickrMedia } from "flickr-sdk";
 import * as http from "http";
 import { parse } from "url";
+import { Media, MediaType } from "../entities/Media";
 import { FlickrClientCredentials, FlickrToken } from "./FlickClientCredentials";
 
 
@@ -9,7 +10,6 @@ export class FlickrFacade {
   constructor(private config: FlickrClientCredentials, private token: FlickrToken | undefined) {
     if (token) {
       this.flickr = new Flickr(Flickr.OAuth.createPlugin(config.key, config.secret, token.oauth_token, token.oauth_token_secret))
-      // this.flickr = Flickr(config.key)
     }
   }
 
@@ -47,5 +47,33 @@ export class FlickrFacade {
       return false
     }
     return true
+  }
+
+  async listMedia(minDate?: number): Promise<Media<FlickrMedia>[]> {
+    if (!this.flickr || !this.token) {
+      throw Error(`Called listPhotos without authentication`)
+    }
+    let pageCount = 1
+    let media: FlickrMedia[] = []
+    while (true) {
+      const page = (await this.flickr.people.getPhotos({ user_id: this.token.nsid, page: pageCount, extras: "url_o,date_upload", min_upload_date: minDate })).body
+      media = media.concat(page.photos.photo)
+      console.log(`Retrieved page ${page.photos.page} / ${page.photos.pages}`)
+      if (page.photos.page === page.photos.pages) {
+        break;
+      }
+      pageCount++
+    }
+
+    return media.map(media => ({
+      id: media.id,
+      title: media.title,
+      type: MediaType.Undetermined,
+      record: media,
+      downloaded: false,
+      url: media.url_o,
+      uploadDate: Number.parseInt(media.dateupload),
+      location: ""
+    }))
   }
 }

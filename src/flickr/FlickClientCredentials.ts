@@ -5,5 +5,6 @@ export interface FlickrClientCredentials {
 
 export interface FlickrToken {
   oauth_token: string,
-  oauth_token_secret: string
+  oauth_token_secret: string,
+  nsid: string,
 }
