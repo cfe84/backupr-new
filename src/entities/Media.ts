@@ -9,7 +9,7 @@ export interface Media<T> {
   title: string,
   uploadDate: number,
   url: string,
-  type: MediaType,
+  type: "photo" | "video",
   record: T,
   downloaded: boolean,
   location: string

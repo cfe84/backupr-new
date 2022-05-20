@@ -39,6 +39,10 @@ export class Store<T> {
     return this.mediaList[id]
   }
 
+  getUnuploadedMedia() {
+    return Object.values(this.mediaList).filter(media => !media.downloaded)
+  }
+
   getMaxUploadDate(): number | undefined {
     if (Object.values(this.mediaList).length === 0) {
       return undefined

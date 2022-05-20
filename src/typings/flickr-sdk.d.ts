@@ -5,6 +5,11 @@ declare module "flickr-sdk" {
       body: T
     }
 
+    interface GetStreamInfoParameters {
+      photo_id: string,
+      secret?: string
+    }
+
     class Test {
       login(): Promise<void>
     }
@@ -18,6 +23,7 @@ declare module "flickr-sdk" {
       title: string,
       url_o: string,
       dateupload: string,
+      media: "photo" | "video",
       ispublic: 0 | 1,
       isfriend: 0 | 1,
       isfamily: 0 | 1
@@ -33,7 +39,7 @@ declare module "flickr-sdk" {
       }
     }
 
-    interface GetPhotosParameter {
+    interface GetPeoplePhotosParameter {
       user_id: string
       page?: number,
       extras?: string,
@@ -41,7 +47,131 @@ declare module "flickr-sdk" {
     }
 
     class People {
-      getPhotos(nsid: GetPhotosParameter): Promise<ResultWithBody<FlickrMediaList>>
+      getPhotos(nsid: GetPeoplePhotosParameter): Promise<ResultWithBody<FlickrMediaList>>
+    }
+
+    interface FlickrSize {
+      label: string,
+      width: number,
+      height: number,
+      source: string,
+      url: string,
+      media: "photo" | "video"
+    }
+
+    interface FlickrSizeList {
+      sizes: {
+        canblog: 0 | 1,
+        canprint: 0 | 1,
+        candownload: 0 | 1,
+        size: FlickrSize[]
+      }
+    }
+
+    interface GetSizesParameters {
+      photo_id: string
+    }
+
+    interface GetInfoParameters {
+      photo_id: string,
+      secret?: string
+    }
+
+    interface FlickrInfo {
+      "photo": {
+        "id": string,
+        "secret": string,
+        "server": string,
+        "farm": number,
+        "dateuploaded": string,
+        "isfavorite": 0 | 1,
+        "license": string,
+        "safety_level": string,
+        "rotation": number,
+        "originalsecret": string,
+        "originalformat": string,
+        "owner": {
+          "nsid": string,
+          "username": string,
+          "realname": string,
+          "location": string,
+          "iconserver": string,
+          "iconfarm": number,
+          "path_alias": string
+        },
+        "title": {
+          "_content": string
+        },
+        "description": {
+          "_content": string
+        },
+        "visibility": {
+          "ispublic": 0 | 1,
+          "isfriend": 0 | 1,
+          "isfamily": 0 | 1
+        },
+        "dates": {
+          "posted": string,
+          "taken": string,
+          "takengranularity": number,
+          "takenunknown": string,
+          "lastupdate": string
+        },
+        "permissions": {
+          "permcomment": number,
+          "permaddmeta": number
+        },
+        "views": string,
+        "editability": {
+          "cancomment": 0 | 1,
+          "canaddmeta": 0 | 1
+        },
+        "publiceditability": {
+          "cancomment": 0 | 1,
+          "canaddmeta": 0 | 1
+        },
+        "usage": {
+          "candownload": 0 | 1,
+          "canblog": 0 | 1,
+          "canprint": 0 | 1,
+          "canshare": 0 | 1
+        },
+        "comments": {
+          "_content": string
+        },
+        "notes": {
+          "note": []
+        },
+        "people": {
+          "haspeople": 0 | 1
+        },
+        "tags": {
+          "tag": []
+        },
+        "urls": {
+          "url": [
+            {
+              "type": string,
+              "_content": string
+            }
+          ]
+        },
+        "media": "video" | "photo",
+        "video": {
+          "ready": 1 | 0,
+          "failed": 0 | 1,
+          "pending": 0 | 1,
+          "duration": string,
+          "width": number,
+          "height": number
+        }
+      },
+      "stat": "ok"
+    }
+
+    class Photos {
+      getSizes(parameters: GetSizesParameters): Promise<ResultWithBody<FlickrSizeList>>
+      getInfo(parameters: GetInfoParameters): Promise<ResultWithBody<FlickrInfo>>
     }
 
 
@@ -79,6 +209,7 @@ declare module "flickr-sdk" {
     constructor(auth: Flickr.Auth)
     test: Flickr.Test
     people: Flickr.People
+    photos: Flickr.Photos
   }
 
   export = Flickr;

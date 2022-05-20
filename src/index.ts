@@ -6,7 +6,9 @@ import { FlickrFacade } from "./flickr/FlickrFacade"
 import { Processor } from "./processor/Processor";
 import { Store } from "./processor/Store";
 dotenv.config()
+import { FlickrRequester } from "./flickr/FlickrRequester";
 
+type Dictionary = { [key: string]: string }
 const configurationProvider = new EnvironmentConfigurationProvider()
 
 const token = configurationProvider.getToken()
