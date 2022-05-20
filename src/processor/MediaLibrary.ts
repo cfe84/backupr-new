@@ -69,4 +69,8 @@ export class MediaLibrary<TMedia, TMediaSet> {
     })
     await this.saveMediaSetList()
   }
+
+  getMediaSets(): MediaSet<TMediaSet>[] {
+    return Object.values(this.mediaSetList)
+  }
 }

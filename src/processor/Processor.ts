@@ -10,12 +10,13 @@ export class Processor {
   }
 
   async process() {
-    await this.syncMediaList()
-    await this.addVideoOriginalUrls()
-    await this.addOriginalName()
-    await this.downloadMissingMedia()
+    // await this.syncMediaList()
+    // await this.addVideoOriginalUrls()
+    // await this.addOriginalName()
+    // await this.downloadMissingMedia()
 
     // await this.syncAlbums()
+    // await this.syncAlbumContent()
   }
 
   private getOriginalName(title: string, type: string, downloadUrl: string) {
@@ -62,18 +63,36 @@ export class Processor {
     await this.library.saveMediaList()
   }
 
-  private async syncAlbums() {
-    console.log(`### Sync media list ###`)
-    const sets = await this.flickr.listSets()
-    this.library.addMediaSets(sets)
-
-  }
-
   private async syncMediaList() {
     console.log(`### Sync media list ###`)
     const maxUploadDate = this.library.getMaxUploadDate()
     const mediaList = await this.flickr.listMedia(maxUploadDate)
     const missingMedia = mediaList.filter(media => this.library.getMedia(media.id) === undefined)
     await this.library.addMedias(missingMedia)
+  }
+
+  private async syncAlbums() {
+    // Todo: sync only missing?
+    console.log(`### Sync media list ###`)
+    const sets = await this.flickr.listSets()
+    this.library.addMediaSets(sets)
+  }
+
+  private async syncAlbumContent() {
+    console.log(`### Sync media set content ###`)
+    const sets = this.library.getMediaSets().filter(set => set.mediaIds.length === 0)
+    let i = 0
+    for (let set of sets) {
+      console.log(`${i++} / ${sets.length}: ${set.name}`)
+      try {
+        const content = await this.flickr.listPhotosInSet(set.record.id)
+        set.mediaIds = content.map(content => content.id)
+        await this.library.saveMediaSetList()
+      }
+      catch (err) {
+        console.error(`Error while retrieving content of set ${set.name} (${set.id}): ${(err as Error).message}`)
+        continue
+      }
+    }
   }
 }

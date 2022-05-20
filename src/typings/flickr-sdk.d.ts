@@ -19,13 +19,16 @@ declare module "flickr-sdk" {
     }
 
     interface GetPhotosetsListParameters {
-      page: number
+      page?: number
     }
 
     interface FlickrPhotoset {
       id: string,
       title: Content,
       description: Content,
+      owner: string,
+      primary: string,
+      secret: string,
     }
 
     interface FlickrPhotosets {
@@ -53,7 +56,8 @@ declare module "flickr-sdk" {
 
     interface GetPhotosetsPhotosParameters {
       photoset_id: string,
-      page: number
+      user_id: string,
+      page?: number
     }
 
     class Photosets {

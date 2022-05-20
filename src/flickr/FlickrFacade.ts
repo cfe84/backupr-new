@@ -79,11 +79,11 @@ export class FlickrFacade {
     }
     let pageCount = 1
     let media: FlickrMedia[] = []
-    while (true && pageCount < 10) {
+    while (true) {
       const page = (await this.flickr.people.getPhotos({ user_id: this.token.nsid, page: pageCount, extras: "url_o,date_upload,date_taken,media", min_upload_date: minDate })).body
       media = media.concat(page.photos.photo)
-      console.log(`Retrieved page ${page.photos.page} / ${page.photos.pages}`)
-      if (page.photos.page === page.photos.pages) {
+      // console.log(`Retrieved page ${page.photos.page} / ${page.photos.pages}`)
+      if (page.photos.page === page.photos.pages || pageCount > 10) {
         break;
       }
       pageCount++
@@ -111,9 +111,8 @@ export class FlickrFacade {
     let sets: FlickrPhotoset[] = []
     while (true && pageCount < 10) {
       const page = (await this.flickr.photosets.getList({ page: pageCount })).body
-      console.log(JSON.stringify(page, null, 2))
       sets = sets.concat(page.photosets.photoset)
-      console.log(`Retrieved page ${page.photosets.page} / ${page.photosets.pages}`)
+      // console.log(`Retrieved page ${page.photosets.page} / ${page.photosets.pages}`)
       if (page.photosets.page === page.photosets.pages) {
         break;
       }
@@ -126,7 +125,7 @@ export class FlickrFacade {
       mediaIds: [],
       name: set.title._content,
       record: set,
-      primaryPhotoId: ""
+      primaryPhotoId: set.primary
     }))
   }
 
@@ -136,11 +135,11 @@ export class FlickrFacade {
     }
     let pageCount = 1
     let photos: FlickrPhotoInSet[] = []
-    while (true && pageCount < 10) {
-      const page = (await this.flickr.photosets.getPhotos({ photoset_id: setId, page: pageCount })).body
+    while (true) {
+      const params = { user_id: this.token.nsid, photoset_id: setId, page: pageCount };
+      const page = (await this.flickr.photosets.getPhotos(params)).body
       photos = photos.concat(page.photoset.photo)
-      console.log(`Retrieved page ${page.photoset.page} / ${page.photoset.pages}`)
-      if (page.photoset.page === page.photoset.pages) {
+      if (pageCount === page.photoset.pages) {
         break;
       }
       pageCount++
