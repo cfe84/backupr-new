@@ -5,6 +5,10 @@ declare module "flickr-sdk" {
       body: T
     }
 
+    interface Content {
+      _content: string
+    }
+
     interface GetStreamInfoParameters {
       photo_id: string,
       secret?: string
@@ -12,6 +16,49 @@ declare module "flickr-sdk" {
 
     class Test {
       login(): Promise<void>
+    }
+
+    interface GetPhotosetsListParameters {
+      page: number
+    }
+
+    interface FlickrPhotoset {
+      id: string,
+      title: Content,
+      description: Content,
+    }
+
+    interface FlickrPhotosets {
+      photosets: {
+        photoset: FlickrPhotoset[]
+        page: number
+        pages: number
+      }
+    }
+
+    interface FlickrPhotoInSet {
+      id: string,
+      secret: string,
+      title: string,
+      isPrimary: boolean
+    }
+
+    interface FlickrPhotosetPhotos {
+      photoset: {
+        photo: [],
+        page: number,
+        pages: number
+      }
+    }
+
+    interface GetPhotosetsPhotosParameters {
+      photoset_id: string,
+      page: number
+    }
+
+    class Photosets {
+      getList(params: GetPhotosetsListParameters): Promise<ResultWithBody<FlickrPhotosets>>
+      getPhotos(params: GetPhotosetsPhotosParameters): Promise<ResultWithBody<FlickrPhotosetPhotos>>
     }
 
     interface FlickrMedia {
@@ -23,6 +70,7 @@ declare module "flickr-sdk" {
       title: string,
       url_o: string,
       dateupload: string,
+      datetaken: string,
       media: "photo" | "video",
       ispublic: 0 | 1,
       isfriend: 0 | 1,
@@ -210,6 +258,7 @@ declare module "flickr-sdk" {
     test: Flickr.Test
     people: Flickr.People
     photos: Flickr.Photos
+    photosets: Flickr.Photosets
   }
 
   export = Flickr;

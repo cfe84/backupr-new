@@ -1,16 +1,21 @@
 import download from "download";
-import { FlickrMedia } from "flickr-sdk";
+import { FlickrMedia, FlickrPhotoset } from "flickr-sdk";
 import { FlickrFacade } from "../flickr/FlickrFacade";
-import { Store } from "./Store";
+import { IMediaStore } from "./IMediaStore";
+import { MediaLibrary } from "./MediaLibrary";
 
 export class Processor {
-  constructor(private flickr: FlickrFacade, private store: Store<FlickrMedia>) {
+  constructor(private flickr: FlickrFacade, private library: MediaLibrary<FlickrMedia, FlickrPhotoset>, private store: IMediaStore<FlickrMedia>) {
 
   }
 
   async process() {
     await this.syncMediaList()
+    await this.addVideoOriginalUrls()
+    await this.addOriginalName()
     await this.downloadMissingMedia()
+
+    // await this.syncAlbums()
   }
 
   private getOriginalName(title: string, type: string, downloadUrl: string) {
@@ -21,34 +26,54 @@ export class Processor {
   }
 
   private async downloadMissingMedia() {
-    console.log(`### Download missing ###`)
-    for (let media of this.store.getUnuploadedMedia()) {
-      let originalName, url
-      if (media.type === "video") {
-        try {
-          url = await this.flickr.getOriginalVideoUrl(media.id, media.record.secret)
-        } catch (err) {
-          console.error(`Failed to retrieve url for id: ${media.id}, name: ${originalName}`)
-          return
-        }
-      } else if (media.type === "photo") {
-        url = media.url
-      } else {
-        console.error(`Unknown media type: ${media.type}`)
-        return
+    console.log(`### Download missing media ###`)
+    const missingMedia = this.library.getUnuploadedMedia()
+    let i = 0
+    for (let media of missingMedia) {
+      try {
+        console.log(`Downloading ${i++}/${missingMedia.length} ${media.originalName} (${media.title} - ${media.id})`)
+        media.location = await this.store.downloadMedia(media)
+        media.downloaded = true
+        await this.library.saveMediaList()
       }
-      originalName = this.getOriginalName(media.title, media.type, url)
-      console.log(`Download ${url} to ${originalName} (${media.title})`)
-      // const res = await download(url)
-      // console.log(res)
+      catch (err) {
+        console.error(`Got error ${err} while downloading ${media.id} (${media.title})`)
+      }
     }
+  }
+
+  private async addOriginalName() {
+    for (let media of this.library.getUnuploadedMedia().filter(media => !media.originalName)) {
+      media.originalName = this.getOriginalName(media.title, media.type, media.url)
+    }
+    await this.library.saveMediaList()
+  }
+
+  private async addVideoOriginalUrls() {
+    console.log(`### Adding video urls ###`)
+    for (let media of this.library.getUnuploadedMedia().filter((media) => media.type === "video" && media.url === "")) {
+      try {
+        media.url = await this.flickr.getOriginalVideoUrl(media.id, media.record.secret)
+      } catch (err) {
+        console.error(`Failed to retrieve url for id: ${media.id}, name: ${media.title}`)
+        continue
+      }
+    }
+    await this.library.saveMediaList()
+  }
+
+  private async syncAlbums() {
+    console.log(`### Sync media list ###`)
+    const sets = await this.flickr.listSets()
+    this.library.addMediaSets(sets)
+
   }
 
   private async syncMediaList() {
     console.log(`### Sync media list ###`)
-    const maxUploadDate = this.store.getMaxUploadDate()
+    const maxUploadDate = this.library.getMaxUploadDate()
     const mediaList = await this.flickr.listMedia(maxUploadDate)
-    const missingMedia = mediaList.filter(media => this.store.getMedia(media.id) === undefined)
-    await this.store.addMedias(missingMedia)
+    const missingMedia = mediaList.filter(media => this.library.getMedia(media.id) === undefined)
+    await this.library.addMedias(missingMedia)
   }
 }

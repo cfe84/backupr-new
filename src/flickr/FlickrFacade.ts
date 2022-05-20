@@ -1,7 +1,8 @@
-import Flickr, { FlickrMedia } from "flickr-sdk";
+import Flickr, { FlickrMedia, FlickrPhotoInSet, FlickrPhotoset } from "flickr-sdk";
 import * as http from "http";
 import { parse } from "url";
 import { Media, MediaType } from "../entities/Media";
+import { MediaSet } from "../entities/MediaSet";
 import { FlickrClientCredentials, FlickrToken } from "./FlickClientCredentials";
 import { FlickrRequester, FlickrStreams } from "./FlickrRequester";
 
@@ -78,8 +79,8 @@ export class FlickrFacade {
     }
     let pageCount = 1
     let media: FlickrMedia[] = []
-    while (true && pageCount < 15) {
-      const page = (await this.flickr.people.getPhotos({ user_id: this.token.nsid, page: pageCount, extras: "url_o,date_upload,media", min_upload_date: minDate })).body
+    while (true && pageCount < 10) {
+      const page = (await this.flickr.people.getPhotos({ user_id: this.token.nsid, page: pageCount, extras: "url_o,date_upload,date_taken,media", min_upload_date: minDate })).body
       media = media.concat(page.photos.photo)
       console.log(`Retrieved page ${page.photos.page} / ${page.photos.pages}`)
       if (page.photos.page === page.photos.pages) {
@@ -94,9 +95,57 @@ export class FlickrFacade {
       type: media.media,
       record: media,
       downloaded: false,
-      url: media.url_o,
-      uploadDate: Number.parseInt(media.dateupload),
+      url: (media.media === "photo" ? media.url_o : ""), // video url is not included in the metadata
+      uploadDate: Number.parseInt(media.dateupload) * 1000,
+      takenDate: media.datetaken ? new Date(media.datetaken).getTime() : Number.parseInt(media.dateupload) * 1000,
+      originalName: "",
       location: ""
     }))
+  }
+
+  async listSets(): Promise<MediaSet<FlickrPhotoset>[]> {
+    if (!this.flickr || !this.token) {
+      throw Error(`Called listSets without authentication`)
+    }
+    let pageCount = 1
+    let sets: FlickrPhotoset[] = []
+    while (true && pageCount < 10) {
+      const page = (await this.flickr.photosets.getList({ page: pageCount })).body
+      console.log(JSON.stringify(page, null, 2))
+      sets = sets.concat(page.photosets.photoset)
+      console.log(`Retrieved page ${page.photosets.page} / ${page.photosets.pages}`)
+      if (page.photosets.page === page.photosets.pages) {
+        break;
+      }
+      pageCount++
+    }
+
+    return sets.map(set => ({
+      description: set.description._content,
+      id: set.id,
+      mediaIds: [],
+      name: set.title._content,
+      record: set,
+      primaryPhotoId: ""
+    }))
+  }
+
+  async listPhotosInSet(setId: string): Promise<FlickrPhotoInSet[]> {
+    if (!this.flickr || !this.token) {
+      throw Error(`Called listPhotosInSet without authentication`)
+    }
+    let pageCount = 1
+    let photos: FlickrPhotoInSet[] = []
+    while (true && pageCount < 10) {
+      const page = (await this.flickr.photosets.getPhotos({ photoset_id: setId, page: pageCount })).body
+      photos = photos.concat(page.photoset.photo)
+      console.log(`Retrieved page ${page.photoset.page} / ${page.photoset.pages}`)
+      if (page.photoset.page === page.photoset.pages) {
+        break;
+      }
+      pageCount++
+    }
+
+    return photos
   }
 }
