@@ -9,18 +9,20 @@ dotenv.config()
 import { FlickrRequester } from "./flickr/FlickrRequester";
 import { FileMediaStore } from "./processor/FileMediaStore";
 import path from "path";
+import { Logger } from "./config/Logger";
 
 const configurationProvider = new EnvironmentConfigurationProvider()
 
+const logger = new Logger("debug")
 const token = configurationProvider.getToken()
-const facade = new FlickrFacade(configurationProvider.getClientCredentials(), token);
+const facade = new FlickrFacade(configurationProvider.getClientCredentials(), token, logger);
 const storePath = configurationProvider.getStore()
 if (!storePath) {
   console.error(`Add REPOSITORY= to your env`)
   exit(1)
 }
 const library = MediaLibrary.load<FlickrMedia, FlickrPhotoset>(storePath)
-const store = new FileMediaStore(path.join(storePath, "media"))
+const store = new FileMediaStore(path.join(storePath, "media"), logger)
 
 async function run() {
   const login = () => {
@@ -37,7 +39,7 @@ NSID=${token.user_nsid}
   if (!await facade.isLoggedInAsync()) {
     login()
   } else {
-    const processor = new Processor(facade, library, store)
+    const processor = new Processor(facade, library, store, logger)
     await processor.process()
   }
 }

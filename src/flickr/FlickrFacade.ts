@@ -1,6 +1,7 @@
 import Flickr, { FlickrMedia, FlickrPhotoInSet, FlickrPhotoset } from "flickr-sdk";
 import * as http from "http";
 import { parse } from "url";
+import { Logger } from "../config/Logger";
 import { Media, MediaType } from "../entities/Media";
 import { MediaSet } from "../entities/MediaSet";
 import { FlickrClientCredentials, FlickrToken } from "./FlickClientCredentials";
@@ -9,7 +10,7 @@ import { FlickrRequester, FlickrStreams } from "./FlickrRequester";
 export class FlickrFacade {
   private flickr: Flickr | undefined
   private requester: FlickrRequester | undefined
-  constructor(private config: FlickrClientCredentials, private token: FlickrToken | undefined) {
+  constructor(private config: FlickrClientCredentials, private token: FlickrToken | undefined, private logger: Logger) {
     if (token) {
       this.flickr = new Flickr(Flickr.OAuth.createPlugin(config.key, config.secret, token.oauth_token, token.oauth_token_secret))
       this.requester = new FlickrRequester(config, token)
@@ -32,7 +33,7 @@ export class FlickrFacade {
     const oauth = new Flickr.OAuth(this.config.key, this.config.secret);
     const res = await oauth.request("http://localhost:3000/");
     const { oauth_token, oauth_token_secret } = res.body;
-    console.log(`Go to this URL and authorize the application: ${oauth.authorizeUrl(oauth_token, "delete")}`);
+    this.logger.log(`Go to this URL and authorize the application: ${oauth.authorizeUrl(oauth_token, "delete")}`);
     const verifier = await listenToAnswer();
     const verifyRes = await oauth.verify(oauth_token, verifier, oauth_token_secret);
     const token = verifyRes.body;
@@ -46,7 +47,7 @@ export class FlickrFacade {
     try {
       await this.flickr.test.login()
     } catch (er) {
-      console.error(er)
+      this.logger.error(er)
       return false
     }
     return true
@@ -82,8 +83,8 @@ export class FlickrFacade {
     while (true) {
       const page = (await this.flickr.people.getPhotos({ user_id: this.token.nsid, page: pageCount, extras: "url_o,date_upload,date_taken,media", min_upload_date: minDate })).body
       media = media.concat(page.photos.photo)
-      // console.log(`Retrieved page ${page.photos.page} / ${page.photos.pages}`)
-      if (page.photos.page === page.photos.pages || pageCount > 10) {
+      this.logger.debug(`Retrieved media page ${page.photos.page} / ${page.photos.pages}`)
+      if (page.photos.page >= page.photos.pages) {
         break;
       }
       pageCount++
@@ -112,8 +113,8 @@ export class FlickrFacade {
     while (true && pageCount < 10) {
       const page = (await this.flickr.photosets.getList({ page: pageCount })).body
       sets = sets.concat(page.photosets.photoset)
-      // console.log(`Retrieved page ${page.photosets.page} / ${page.photosets.pages}`)
-      if (page.photosets.page === page.photosets.pages) {
+      this.logger.debug(`Retrieved sets page ${page.photosets.page} / ${page.photosets.pages}`)
+      if (pageCount >= page.photosets.pages) {
         break;
       }
       pageCount++
@@ -139,7 +140,8 @@ export class FlickrFacade {
       const params = { user_id: this.token.nsid, photoset_id: setId, page: pageCount };
       const page = (await this.flickr.photosets.getPhotos(params)).body
       photos = photos.concat(page.photoset.photo)
-      if (pageCount === page.photoset.pages) {
+      this.logger.debug(`Retrieved photos in sets ${page.photoset.page} / ${page.photoset.pages}`)
+      if (pageCount >= page.photoset.pages) {
         break;
       }
       pageCount++

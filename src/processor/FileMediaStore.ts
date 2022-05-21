@@ -5,9 +5,10 @@ import * as path from "path";
 import * as https from "https";
 import { resolve } from "path";
 import { rejects } from "assert";
+import { Logger } from "../config/Logger";
 
 export class FileMediaStore<T> implements IMediaStore<T> {
-  constructor(private root: string) {
+  constructor(private root: string, private logger: Logger) {
 
   }
 
@@ -47,7 +48,7 @@ export class FileMediaStore<T> implements IMediaStore<T> {
     const absoluteFilePath = path.join(this.root, relativeFilePath)
 
     if (fs.existsSync(absoluteFilePath)) {
-      console.warn(`File existed and was removed: '${absoluteFilePath}'`)
+      this.logger.warn(`File existed and was removed: '${absoluteFilePath}'`)
       fs.unlinkSync(absoluteFilePath)
     }
     await this.download(media.url, absoluteFilePath)

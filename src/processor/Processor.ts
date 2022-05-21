@@ -1,19 +1,23 @@
 import download from "download";
 import { FlickrMedia, FlickrPhotoset } from "flickr-sdk";
+import { Logger } from "../config/Logger";
 import { FlickrFacade } from "../flickr/FlickrFacade";
 import { IMediaStore } from "./IMediaStore";
 import { MediaLibrary } from "./MediaLibrary";
 
 export class Processor {
-  constructor(private flickr: FlickrFacade, private library: MediaLibrary<FlickrMedia, FlickrPhotoset>, private store: IMediaStore<FlickrMedia>) {
+  constructor(private flickr: FlickrFacade,
+    private library: MediaLibrary<FlickrMedia, FlickrPhotoset>,
+    private store: IMediaStore<FlickrMedia>,
+    private logger: Logger) {
 
   }
 
   async process() {
-    // await this.syncMediaList()
-    // await this.addVideoOriginalUrls()
-    // await this.addOriginalName()
-    // await this.downloadMissingMedia()
+    await this.syncMediaList()
+    await this.addVideoOriginalUrls()
+    await this.addOriginalName()
+    await this.downloadMissingMedia()
 
     // await this.syncAlbums()
     // await this.syncAlbumContent()
@@ -27,36 +31,36 @@ export class Processor {
   }
 
   private async downloadMissingMedia() {
-    console.log(`### Download missing media ###`)
-    const missingMedia = this.library.getUnuploadedMedia()
+    this.logger.log(`### Download missing media ###`)
+    const missingMedia = this.library.getUnuploadedMedia().filter(media => media.originalName && media.url)
     let i = 0
     for (let media of missingMedia) {
       try {
-        console.log(`Downloading ${i++}/${missingMedia.length} ${media.originalName} (${media.title} - ${media.id})`)
+        this.logger.log(`Downloading ${i++}/${missingMedia.length} ${media.originalName} (${media.title} - ${media.id})`)
         media.location = await this.store.downloadMedia(media)
         media.downloaded = true
         await this.library.saveMediaList()
       }
       catch (err) {
-        console.error(`Got error ${err} while downloading ${media.id} (${media.title})`)
+        this.logger.error(`Got error ${err} while downloading ${media.id} (${media.title})`)
       }
     }
   }
 
   private async addOriginalName() {
-    for (let media of this.library.getUnuploadedMedia().filter(media => !media.originalName)) {
+    for (let media of this.library.getUnuploadedMedia().filter(media => !media.originalName && media.url)) {
       media.originalName = this.getOriginalName(media.title, media.type, media.url)
     }
     await this.library.saveMediaList()
   }
 
   private async addVideoOriginalUrls() {
-    console.log(`### Adding video urls ###`)
+    this.logger.log(`### Adding video urls ###`)
     for (let media of this.library.getUnuploadedMedia().filter((media) => media.type === "video" && media.url === "")) {
       try {
         media.url = await this.flickr.getOriginalVideoUrl(media.id, media.record.secret)
       } catch (err) {
-        console.error(`Failed to retrieve url for id: ${media.id}, name: ${media.title}`)
+        this.logger.error(`Failed to retrieve url for id: ${media.id}, name: ${media.title}: ${(err as Error).message}`)
         continue
       }
     }
@@ -64,7 +68,7 @@ export class Processor {
   }
 
   private async syncMediaList() {
-    console.log(`### Sync media list ###`)
+    this.logger.log(`### Sync media list ###`)
     const maxUploadDate = this.library.getMaxUploadDate()
     const mediaList = await this.flickr.listMedia(maxUploadDate)
     const missingMedia = mediaList.filter(media => this.library.getMedia(media.id) === undefined)
@@ -73,24 +77,24 @@ export class Processor {
 
   private async syncAlbums() {
     // Todo: sync only missing?
-    console.log(`### Sync media list ###`)
+    this.logger.log(`### Sync media list ###`)
     const sets = await this.flickr.listSets()
     this.library.addMediaSets(sets)
   }
 
   private async syncAlbumContent() {
-    console.log(`### Sync media set content ###`)
+    this.logger.log(`### Sync media set content ###`)
     const sets = this.library.getMediaSets().filter(set => set.mediaIds.length === 0)
     let i = 0
     for (let set of sets) {
-      console.log(`${i++} / ${sets.length}: ${set.name}`)
+      this.logger.debug(`${i++} / ${sets.length}: ${set.name}`)
       try {
         const content = await this.flickr.listPhotosInSet(set.record.id)
         set.mediaIds = content.map(content => content.id)
         await this.library.saveMediaSetList()
       }
       catch (err) {
-        console.error(`Error while retrieving content of set ${set.name} (${set.id}): ${(err as Error).message}`)
+        this.logger.error(`Error while retrieving content of set ${set.name} (${set.id}): ${(err as Error).message}`)
         continue
       }
     }
