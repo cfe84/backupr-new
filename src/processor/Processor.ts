@@ -1,9 +1,17 @@
 import download from "download";
 import { FlickrMedia, FlickrPhotoset } from "flickr-sdk";
 import { Logger } from "../config/Logger";
+import { Media, MediaProcessError } from "../entities/Media";
 import { FlickrFacade } from "../flickr/FlickrFacade";
 import { IMediaStore } from "./IMediaStore";
 import { MediaLibrary } from "./MediaLibrary";
+
+const forbiddenChars = new RegExp("[\/><:\\\\|?*]", "g")
+
+const errorCodes = {
+  VIDEO_URL: "VIDEO_URL_FETCH_ERROR",
+
+}
 
 export class Processor {
   constructor(private flickr: FlickrFacade,
@@ -15,7 +23,6 @@ export class Processor {
 
   async process() {
     await this.syncMediaList()
-    await this.addVideoOriginalUrls()
     await this.addOriginalName()
     await this.downloadMissingMedia()
 
@@ -23,10 +30,36 @@ export class Processor {
     // await this.syncAlbumContent()
   }
 
+  private getErrorOfType(media: Media<FlickrMedia>, errorCode: string): MediaProcessError {
+    const newError = {
+      code: errorCode,
+      message: "",
+      count: 0
+    }
+    if (!media.errors) {
+      return newError
+    }
+    let error = media.errors.find(err => err.code === errorCode)
+    if (!error) {
+      return newError
+    }
+    return error
+  }
+
+  private async addError(media: Media<FlickrMedia>, error: MediaProcessError) {
+    if (!media.errors) {
+      media.errors = []
+    }
+    if (media.errors.indexOf(error) < 0) {
+      media.errors.push(error)
+    }
+  }
+
   private getOriginalName(title: string, type: string, downloadUrl: string) {
     const url = new URL(downloadUrl)
     const index = url.pathname.lastIndexOf(".")
     const extension = index >= 0 ? url.pathname.substring(index) : type === "video" ? ".mp4" : ".jpg"
+    title = title.replace(forbiddenChars, "_")
     return title + extension
   }
 
@@ -35,36 +68,48 @@ export class Processor {
     const missingMedia = this.library.getUnuploadedMedia().filter(media => media.originalName && media.url)
     let i = 0
     for (let media of missingMedia) {
-      try {
-        this.logger.log(`Downloading ${i++}/${missingMedia.length} ${media.originalName} (${media.title} - ${media.id})`)
-        media.location = await this.store.downloadMedia(media)
-        media.downloaded = true
-        await this.library.saveMediaList()
+      this.logger.log(`Downloading ${i++}/${missingMedia.length} ${media.originalName} (${media.title} - ${media.id})`)
+      if (media.type === "video" && !await this.addVideoOriginalUrl(media)) {
+        continue
       }
-      catch (err) {
-        this.logger.error(`Got error ${err} while downloading ${media.id} (${media.title})`)
-      }
+      await this.downloadMedia(media);
+    }
+  }
+
+  private async downloadMedia(media: Media<FlickrMedia>) {
+    try {
+      media.location = await this.store.downloadMedia(media);
+      media.downloaded = true;
+      await this.library.saveMediaList();
+    }
+    catch (err) {
+      this.logger.error(`Got error ${err} while downloading ${media.id} (${media.title})`);
     }
   }
 
   private async addOriginalName() {
-    for (let media of this.library.getUnuploadedMedia().filter(media => !media.originalName && media.url)) {
+    for (let media of this.library.getUnuploadedMedia().filter(media => media.url && !media.originalName)) {
       media.originalName = this.getOriginalName(media.title, media.type, media.url)
+      console.log(`Getting original name ${media.originalName}`)
     }
     await this.library.saveMediaList()
   }
 
-  private async addVideoOriginalUrls() {
-    this.logger.log(`### Adding video urls ###`)
-    for (let media of this.library.getUnuploadedMedia().filter((media) => media.type === "video" && media.url === "")) {
-      try {
-        media.url = await this.flickr.getOriginalVideoUrl(media.id, media.record.secret)
-      } catch (err) {
-        this.logger.error(`Failed to retrieve url for id: ${media.id}, name: ${media.title}: ${(err as Error).message}`)
-        continue
-      }
+  private async addVideoOriginalUrl(media: Media<FlickrMedia>): Promise<boolean> {
+    const urlError = this.getErrorOfType(media, errorCodes.VIDEO_URL)
+    if (urlError.count >= 3) {
+      console.warn(`Skipped ${media.id} as it consistently fails`);
     }
-    await this.library.saveMediaList()
+    try {
+      media.url = await this.flickr.getOriginalVideoUrl(media.id, media.record.secret)
+      return true
+    } catch (err) {
+      this.logger.error(`Failed to retrieve url for id: ${media.id}, name: ${media.title}: ${(err as Error).message}.`)
+      urlError.message = (err as Error).message
+      urlError.count++
+      this.addError(media, urlError)
+      return false
+    }
   }
 
   private async syncMediaList() {

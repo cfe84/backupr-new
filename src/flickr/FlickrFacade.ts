@@ -100,7 +100,8 @@ export class FlickrFacade {
       uploadDate: Number.parseInt(media.dateupload) * 1000,
       takenDate: media.datetaken ? new Date(media.datetaken).getTime() : Number.parseInt(media.dateupload) * 1000,
       originalName: "",
-      location: ""
+      location: "",
+      errors: []
     }))
   }
 

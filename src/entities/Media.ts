@@ -4,6 +4,12 @@ export enum MediaType {
   Video
 }
 
+export interface MediaProcessError {
+  code: string,
+  message: string,
+  count: number
+}
+
 export interface Media<T> {
   id: string,
   title: string,
@@ -14,5 +20,6 @@ export interface Media<T> {
   url: string,
   originalName: string,
   downloaded: boolean,
-  location: string
+  location: string,
+  errors?: MediaProcessError[]
 }

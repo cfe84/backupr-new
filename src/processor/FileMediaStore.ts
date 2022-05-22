@@ -51,7 +51,11 @@ export class FileMediaStore<T> implements IMediaStore<T> {
       this.logger.warn(`File existed and was removed: '${absoluteFilePath}'`)
       fs.unlinkSync(absoluteFilePath)
     }
-    await this.download(media.url, absoluteFilePath)
+    try {
+      await this.download(media.url, absoluteFilePath)
+    } catch (err) {
+      throw err
+    }
 
     return relativeFilePath
   }
