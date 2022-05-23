@@ -23,7 +23,6 @@ export class Processor {
 
   async process() {
     await this.syncMediaList()
-    await this.addOriginalName()
     await this.downloadMissingMedia()
 
     // await this.syncAlbums()
@@ -65,13 +64,14 @@ export class Processor {
 
   private async downloadMissingMedia() {
     this.logger.log(`### Download missing media ###`)
-    const missingMedia = this.library.getUnuploadedMedia().filter(media => media.originalName && media.url)
+    const missingMedia = this.library.getUnuploadedMedia()
     let i = 0
     for (let media of missingMedia) {
       this.logger.log(`Downloading ${i++}/${missingMedia.length} ${media.originalName} (${media.title} - ${media.id})`)
       if (media.type === "video" && !await this.addVideoOriginalUrl(media)) {
         continue
       }
+      media.originalName = this.getOriginalName(media.title, media.type, media.url)
       await this.downloadMedia(media);
     }
   }
@@ -87,18 +87,11 @@ export class Processor {
     }
   }
 
-  private async addOriginalName() {
-    for (let media of this.library.getUnuploadedMedia().filter(media => media.url && !media.originalName)) {
-      media.originalName = this.getOriginalName(media.title, media.type, media.url)
-      console.log(`Getting original name ${media.originalName}`)
-    }
-    await this.library.saveMediaList()
-  }
-
   private async addVideoOriginalUrl(media: Media<FlickrMedia>): Promise<boolean> {
     const urlError = this.getErrorOfType(media, errorCodes.VIDEO_URL)
     if (urlError.count >= 3) {
-      console.warn(`Skipped ${media.id} as it consistently fails`);
+      this.logger.warn(`Skipped ${media.id} as it consistently fails`);
+      return false
     }
     try {
       media.url = await this.flickr.getOriginalVideoUrl(media.id, media.record.secret)
@@ -115,6 +108,7 @@ export class Processor {
   private async syncMediaList() {
     this.logger.log(`### Sync media list ###`)
     const maxUploadDate = this.library.getMaxUploadDate()
+    this.logger.debug(`Taking everything uploaded after ${maxUploadDate ? new Date(maxUploadDate) : 'beginning of time'}`)
     const mediaList = await this.flickr.listMedia(maxUploadDate)
     const missingMedia = mediaList.filter(media => this.library.getMedia(media.id) === undefined)
     await this.library.addMedias(missingMedia)

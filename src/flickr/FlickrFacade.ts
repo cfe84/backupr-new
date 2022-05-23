@@ -78,12 +78,15 @@ export class FlickrFacade {
     if (!this.flickr || !this.token) {
       throw Error(`Called listMedia without authentication`)
     }
+    if (!!minDate) {
+      minDate = minDate / 1000 // Flickr takes dates / 1000
+    }
     let pageCount = 1
     let media: FlickrMedia[] = []
     while (true) {
       const page = (await this.flickr.people.getPhotos({ user_id: this.token.nsid, page: pageCount, extras: "url_o,date_upload,date_taken,media", min_upload_date: minDate })).body
       media = media.concat(page.photos.photo)
-      this.logger.debug(`Retrieved media page ${page.photos.page} / ${page.photos.pages}`)
+      this.logger.debug(`Retrieved media page ${page.photos.page} / ${page.photos.pages}, containing ${page.photos.total} photos`)
       if (page.photos.page >= page.photos.pages) {
         break;
       }
