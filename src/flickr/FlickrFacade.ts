@@ -130,7 +130,9 @@ export class FlickrFacade {
       mediaIds: [],
       name: set.title._content,
       record: set,
-      primaryPhotoId: set.primary
+      primaryPhotoId: set.primary,
+      contentAsOf: 0,
+      lastUpdate: Number.parseInt(set.date_update) * 1000
     }))
   }
 
@@ -144,7 +146,6 @@ export class FlickrFacade {
       const params = { user_id: this.token.nsid, photoset_id: setId, page: pageCount };
       const page = (await this.flickr.photosets.getPhotos(params)).body
       photos = photos.concat(page.photoset.photo)
-      this.logger.debug(`Retrieved photos in sets ${page.photoset.page} / ${page.photoset.pages}`)
       if (pageCount >= page.photoset.pages) {
         break;
       }

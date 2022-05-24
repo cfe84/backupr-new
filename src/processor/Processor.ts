@@ -24,9 +24,8 @@ export class Processor {
   async process() {
     await this.syncMediaList()
     await this.downloadMissingMedia()
-
-    // await this.syncAlbums()
-    // await this.syncAlbumContent()
+    await this.syncAlbums()
+    await this.syncAlbumContent()
   }
 
   private getErrorOfType(media: Media<FlickrMedia>, errorCode: string): MediaProcessError {
@@ -115,21 +114,36 @@ export class Processor {
   }
 
   private async syncAlbums() {
-    // Todo: sync only missing?
     this.logger.log(`### Sync media list ###`)
     const sets = await this.flickr.listSets()
-    this.library.addMediaSets(sets)
+    const mediaSetsInStore = await this.library.getMediaSets()
+    // Update existing sets
+    sets.forEach(media => {
+      const setInStore = mediaSetsInStore.find(setInStore => setInStore.id === media.id)
+      if (setInStore && setInStore.lastUpdate !== media.lastUpdate) {
+        this.logger.debug(`Media set '${setInStore.name}' changed, saving new lastUpdate.`)
+        setInStore.lastUpdate = media.lastUpdate
+      }
+    })
+    const missingSets = sets.filter(set => mediaSetsInStore.find(setInStore => setInStore.id === set.id) === undefined)
+    this.logger.debug(`Adding ${missingSets.length} missing sets`)
+    if (missingSets.length !== 0) {
+      await this.library.addMediaSets(missingSets)
+    } else {
+      await this.library.saveMediaSetList()
+    }
   }
 
   private async syncAlbumContent() {
     this.logger.log(`### Sync media set content ###`)
-    const sets = this.library.getMediaSets().filter(set => set.mediaIds.length === 0)
+    const sets = this.library.getMediaSets().filter(set => set.contentAsOf !== set.lastUpdate)
     let i = 0
     for (let set of sets) {
-      this.logger.debug(`${i++} / ${sets.length}: ${set.name}`)
+      this.logger.debug(`Updating media set ${i++} / ${sets.length} '${set.name}'`)
       try {
         const content = await this.flickr.listPhotosInSet(set.record.id)
         set.mediaIds = content.map(content => content.id)
+        set.contentAsOf = set.lastUpdate
         await this.library.saveMediaSetList()
       }
       catch (err) {

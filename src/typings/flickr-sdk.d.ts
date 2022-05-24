@@ -29,6 +29,8 @@ declare module "flickr-sdk" {
       owner: string,
       primary: string,
       secret: string,
+      date_create: string,
+      date_update: string,
     }
 
     interface FlickrPhotosets {
