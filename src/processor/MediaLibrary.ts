@@ -52,6 +52,10 @@ export class MediaLibrary<TMedia, TMediaSet> {
     return this.mediaList[id]
   }
 
+  getAllMedia() {
+    return Object.values(this.mediaList)
+  }
+
   getUnuploadedMedia() {
     return Object.values(this.mediaList).filter(media => !media.downloaded)
   }

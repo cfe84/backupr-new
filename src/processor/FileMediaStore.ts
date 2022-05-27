@@ -12,6 +12,12 @@ export class FileMediaStore<T> implements IMediaStore<T> {
 
   }
 
+  async getMediaContent(media: Media<T>): Promise<Buffer> {
+    const relativeFilePath = this.getMediaFilePath(media)
+    const absoluteFilePath = path.join(this.root, relativeFilePath)
+    return fs.readFileSync(absoluteFilePath)
+  }
+
   private getFolderForMedia(media: Media<T>): string {
     return path.join(new Date(media.takenDate).getFullYear().toString())
   }
@@ -40,11 +46,17 @@ export class FileMediaStore<T> implements IMediaStore<T> {
     })
   }
 
+  private getMediaFilePath(media: Media<T>): string {
+    const relativeFolder = this.getFolderForMedia(media)
+    const relativeFilePath = path.join(relativeFolder, this.getFilenameForMedia(media))
+    return relativeFilePath
+  }
+
   async downloadMedia(media: Media<T>): Promise<string> {
     const relativeFolder = this.getFolderForMedia(media)
     const absoluteFolder = path.join(this.root, relativeFolder)
     fs.mkdirSync(absoluteFolder, { recursive: true })
-    const relativeFilePath = path.join(relativeFolder, this.getFilenameForMedia(media))
+    const relativeFilePath = this.getMediaFilePath(media)
     const absoluteFilePath = path.join(this.root, relativeFilePath)
 
     if (fs.existsSync(absoluteFilePath)) {

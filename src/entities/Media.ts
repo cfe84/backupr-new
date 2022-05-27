@@ -21,5 +21,6 @@ export interface Media<T> {
   originalName: string,
   downloaded: boolean,
   location: string,
+  hash?: string,
   errors?: MediaProcessError[]
 }

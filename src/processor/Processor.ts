@@ -1,17 +1,20 @@
-import download from "download";
 import { FlickrMedia, FlickrPhotoset } from "flickr-sdk";
 import { Logger } from "../config/Logger";
 import { Media, MediaProcessError } from "../entities/Media";
 import { FlickrFacade } from "../flickr/FlickrFacade";
 import { IMediaStore } from "./IMediaStore";
 import { MediaLibrary } from "./MediaLibrary";
+import { dHash } from "dhashjs"
 
 const forbiddenChars = new RegExp("[\/><:\\\\|?*]", "g")
 
 const errorCodes = {
   VIDEO_URL: "VIDEO_URL_FETCH_ERROR",
-
+  RETRIEVE_FROM_STORAGE: "RETRIEVE_FROM_STORAGE_ERROR",
+  CALCULATE_PICTURE_HASH: "CALCULATE_PICTURE_HASH_ERROR"
 }
+
+type AsyncExecutor = () => Promise<void>
 
 export class Processor {
   constructor(private flickr: FlickrFacade,
@@ -26,6 +29,7 @@ export class Processor {
     await this.downloadMissingMedia()
     await this.syncAlbums()
     await this.syncAlbumContent()
+    await this.hashMedia()
   }
 
   private getErrorOfType(media: Media<FlickrMedia>, errorCode: string): MediaProcessError {
@@ -53,6 +57,24 @@ export class Processor {
     }
   }
 
+  private async executeWithErrorProtection(media: Media<FlickrMedia>, errorCode: string, executor: AsyncExecutor): Promise<boolean> {
+    const error = this.getErrorOfType(media, errorCode)
+    if (error.count >= 3) {
+      this.logger.warn(`Skipped ${media.id} for ${errorCode} as it failed ${error.count} times`);
+      return false
+    }
+    try {
+      await executor()
+      return true
+    } catch (err) {
+      error.message = (err as Error).message
+      error.count++
+      this.addError(media, error)
+      this.logger.error(`Failed execution ${error.count} times on ${errorCode} from ${media.id}: ${error.message}`)
+      return false
+    }
+  }
+
   private getOriginalName(title: string, type: string, downloadUrl: string) {
     const url = new URL(downloadUrl)
     const index = url.pathname.lastIndexOf(".")
@@ -75,6 +97,12 @@ export class Processor {
     }
   }
 
+  private async addVideoOriginalUrl(media: Media<FlickrMedia>): Promise<boolean> {
+    return await this.executeWithErrorProtection(media, errorCodes.VIDEO_URL, async () => {
+      media.url = await this.flickr.getOriginalVideoUrl(media.id, media.record.secret)
+    })
+  }
+
   private async downloadMedia(media: Media<FlickrMedia>) {
     try {
       media.location = await this.store.downloadMedia(media);
@@ -83,24 +111,6 @@ export class Processor {
     }
     catch (err) {
       this.logger.error(`Got error ${err} while downloading ${media.id} (${media.title})`);
-    }
-  }
-
-  private async addVideoOriginalUrl(media: Media<FlickrMedia>): Promise<boolean> {
-    const urlError = this.getErrorOfType(media, errorCodes.VIDEO_URL)
-    if (urlError.count >= 3) {
-      this.logger.warn(`Skipped ${media.id} as it consistently fails`);
-      return false
-    }
-    try {
-      media.url = await this.flickr.getOriginalVideoUrl(media.id, media.record.secret)
-      return true
-    } catch (err) {
-      this.logger.error(`Failed to retrieve url for id: ${media.id}, name: ${media.title}: ${(err as Error).message}.`)
-      urlError.message = (err as Error).message
-      urlError.count++
-      this.addError(media, urlError)
-      return false
     }
   }
 
@@ -149,6 +159,22 @@ export class Processor {
       catch (err) {
         this.logger.error(`Error while retrieving content of set ${set.name} (${set.id}): ${(err as Error).message}`)
         continue
+      }
+    }
+  }
+
+  private async hashMedia() {
+    this.logger.log(`### Calculate media hash ###`)
+    const mediaMissingHash = this.library.getAllMedia().filter(media => !media.hash)
+    let i = 0
+    for (let media of mediaMissingHash) {
+      if (media.type === "photo") {
+        this.logger.debug(`Calculating hash for photo ${i++}/${mediaMissingHash.length}`)
+        let content: Buffer
+        if (await this.executeWithErrorProtection(media, errorCodes.RETRIEVE_FROM_STORAGE, async () => { content = await this.store.getMediaContent(media) }) &&
+          await this.executeWithErrorProtection(media, errorCodes.CALCULATE_PICTURE_HASH, async () => { media.hash = await dHash.calculateHashAsync(content) })) {
+          this.library.saveMediaList()
+        }
       }
     }
   }

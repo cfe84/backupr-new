@@ -29,6 +29,7 @@
     "typescript": "^4.6.4"
   },
   "dependencies": {
+    "dhashjs": "^1.4.0",
     "dotenv": "^16.0.1",
     "flickr-sdk": "^6.0.0",
     "superagent": "^7.1.3"
