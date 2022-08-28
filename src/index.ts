@@ -6,7 +6,6 @@ import { FlickrFacade } from "./flickr/FlickrFacade"
 import { Processor } from "./processor/Processor";
 import { MediaLibrary } from "./processor/MediaLibrary";
 dotenv.config()
-import { FlickrRequester } from "./flickr/FlickrRequester";
 import { FileMediaStore } from "./processor/FileMediaStore";
 import path from "path";
 import { Logger } from "./config/Logger";
