@@ -9,14 +9,19 @@ export class WebServer {
     this.index = this.index.bind(this);
 
     this.app.get("/", this.index);
+    this.app.get("/keep-alive", this.keepAlive);
   }
 
   public start() {
     this.app.listen(this.port);
   }
 
-  public index(req: Express.Request, res: Express.Response){
-    res.write("yes!\n" + this.logger.getLogs().reverse().join("\n"));
+  public index(req: Express.Request, res: Express.Response) {
+    res.write("Logs:\n" + this.logger.getLogs().reverse().join("\n"));
     res.end();
+  }
+
+  public keepAlive(req: Express.Request, res: Express.Response) {
+    res.end("alive");
   }
 }
