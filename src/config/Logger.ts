@@ -1,10 +1,11 @@
 interface Log {
   level: string,
+  date: Date,
   message: any[]
 }
 
 function logToString(log: Log): string {
-  return `${log.level} ${log.message.join(" ")}`;
+  return `${log.date.getUTCHours()}:${log.date.getUTCMinutes()}:${log.date.getUTCSeconds()} ${log.level} ${log.message.join(" ")}`;
 }
 
 export class Logger {
@@ -15,6 +16,7 @@ export class Logger {
   private addLog(level: string, message: any, params: any[]) {
     this.logs.push({
       level,
+      date: new Date(),
       message: [message, ...params]
     })
   }
