@@ -9,6 +9,7 @@ dotenv.config()
 import { FileMediaStore } from "./processor/FileMediaStore";
 import path from "path";
 import { Logger } from "./config/Logger";
+import { WebServer } from "./webserver/WebServer";
 
 const configurationProvider = new EnvironmentConfigurationProvider()
 
@@ -22,6 +23,8 @@ if (!storePath) {
 }
 const library = MediaLibrary.load<FlickrMedia, FlickrPhotoset>(storePath)
 const store = new FileMediaStore(path.join(storePath, "media"), logger)
+const server = new WebServer(configurationProvider.getPort(), logger);
+
 
 async function run() {
   const login = () => {
@@ -38,6 +41,7 @@ NSID=${token.user_nsid}
   if (!await facade.isLoggedInAsync()) {
     login()
   } else {
+    server.start();
     const processor = new Processor(facade, library, store, logger)
     await processor.process()
   }

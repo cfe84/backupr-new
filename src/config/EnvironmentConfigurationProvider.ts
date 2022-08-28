@@ -20,4 +20,8 @@ export class EnvironmentConfigurationProvider {
   getStore(): string | undefined {
     return process.env.REPOSITORY
   }
+
+  getPort(): number {
+    return Number.parseInt(process.env.PORT || "8080")
+  }
 }
