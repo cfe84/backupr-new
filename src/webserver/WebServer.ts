@@ -16,7 +16,7 @@ export class WebServer {
   }
 
   public index(req: Express.Request, res: Express.Response){
-    res.write("yes!\n" + this.logger.getLogs().join("\n"));
+    res.write("yes!\n" + this.logger.getLogs().reverse().join("\n"));
     res.end();
   }
 }
