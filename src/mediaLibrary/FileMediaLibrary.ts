@@ -3,11 +3,12 @@ import * as fsAsync from "fs/promises"
 import * as path from "path"
 import { Media } from "../entities/Media"
 import { MediaSet } from "../entities/MediaSet"
+import { IMediaLibrary } from "./IMediaLibrary"
 
 type Dictionary<T> = { [key: string]: T }
 
-export class MediaLibrary<TMedia, TMediaSet> {
-  static load<TMedia, TMediaSet>(storePath: string): MediaLibrary<TMedia, TMediaSet> {
+export class FileMediaLibrary<TMedia, TMediaSet> implements IMediaLibrary<TMedia, TMediaSet> {
+  static load<TMedia, TMediaSet>(storePath: string): FileMediaLibrary<TMedia, TMediaSet> {
     const mediaFile = path.join(storePath, "media.json")
     const tmpMediaFile = path.join(storePath, "tmp-media.json")
     let media = {}
@@ -23,39 +24,44 @@ export class MediaLibrary<TMedia, TMediaSet> {
     if (fs.existsSync(mediaSetFile)) {
       mediasets = JSON.parse(fs.readFileSync(mediaSetFile).toString())
     }
-    return new MediaLibrary(media, mediaFile, tmpMediaFile, mediasets, mediaSetFile, tmpMediaSetFile)
+    return new FileMediaLibrary(media, mediaFile, tmpMediaFile, mediasets, mediaSetFile, tmpMediaSetFile)
   }
+
   private constructor(private mediaList: Dictionary<Media<TMedia>>,
     private mediaFile: string,
     private tmpMediaFile: string,
     private mediaSetList: Dictionary<MediaSet<TMediaSet>>,
     private mediaSetFile: string,
     private tmpMediaSetFile: string) {
-
   }
 
-  public async saveMediaList() {
+  private async saveMediaListAsync() {
     await fsAsync.writeFile(this.tmpMediaFile, JSON.stringify(this.mediaList, null, 2))
     await fsAsync.rename(this.tmpMediaFile, this.mediaFile);
   }
-  public async saveMediaSetList() {
+
+  private async saveMediaSetListAsync() {
     await fsAsync.writeFile(this.tmpMediaSetFile, JSON.stringify(this.mediaSetList, null, 2))
     await fsAsync.rename(this.tmpMediaSetFile, this.mediaSetFile);
   }
 
+  async updateMediaAsync(media: Media<TMedia>) {
+    await this.saveMediaListAsync();
+  }
+
   async addMedia(media: Media<TMedia>) {
     this.mediaList[media.id] = media
-    await this.saveMediaList()
+    await this.saveMediaListAsync()
   }
 
   async addMedias(medias: Media<TMedia>[]) {
     medias.forEach((media) => {
       this.mediaList[media.id] = media
     })
-    await this.saveMediaList()
+    await this.saveMediaListAsync()
   }
 
-  getMedia(id: string): Media<TMedia> | undefined {
+  async getMediaAsync(id: string): Promise<Media<TMedia> | undefined> {
     return this.mediaList[id]
   }
 
@@ -63,7 +69,7 @@ export class MediaLibrary<TMedia, TMediaSet> {
     return Object.values(this.mediaList).filter(media => !media.hash)
   }
 
-  getUnuploadedMedia() {
+  async getUnuploadedMedia(): Promise<Media<TMedia>[]> {
     return Object.values(this.mediaList).filter(media => !media.downloaded)
   }
 
@@ -74,11 +80,15 @@ export class MediaLibrary<TMedia, TMediaSet> {
     return Math.max(...Object.values(this.mediaList).map(media => media.uploadDate))
   }
 
-  async addMediaSets(mediaSets: MediaSet<TMediaSet>[]) {
+  async addMediaSetsAsync(mediaSets: MediaSet<TMediaSet>[]) {
     mediaSets.forEach(mediaSet => {
       this.mediaSetList[mediaSet.id] = mediaSet
     })
-    await this.saveMediaSetList()
+    await this.saveMediaSetListAsync()
+  }
+
+  async updateMediaSetAsync(mediaSet: MediaSet<TMediaSet>) {
+    await this.saveMediaSetListAsync()
   }
 
   async getMediaSets(): Promise<MediaSet<TMediaSet>[]> {

@@ -1,12 +1,13 @@
 import * as dotenv from "dotenv"
+dotenv.config()
+
 import { FlickrMedia, FlickrMediaList, FlickrPhotoset } from "flickr-sdk";
 import { exit } from "process";
 import { EnvironmentConfigurationProvider } from "./config/EnvironmentConfigurationProvider";
 import { FlickrFacade } from "./flickr/FlickrFacade"
 import { Processor } from "./processor/Processor";
-import { MediaLibrary } from "./processor/MediaLibrary";
-dotenv.config()
-import { FileMediaStore } from "./processor/FileMediaStore";
+import { FileMediaLibrary } from "./mediaLibrary/FileMediaLibrary";
+import { FileMediaStore } from "./mediaLibrary/FileMediaStore";
 import path from "path";
 import { Logger } from "./config/Logger";
 import { WebServer } from "./webserver/WebServer";
@@ -21,7 +22,7 @@ if (!storePath) {
   console.error(`Add REPOSITORY= to your env`)
   exit(1)
 }
-const library = MediaLibrary.load<FlickrMedia, FlickrPhotoset>(storePath)
+const library = FileMediaLibrary.load<FlickrMedia, FlickrPhotoset>(storePath)
 const store = new FileMediaStore(path.join(storePath, "media"), logger)
 const server = new WebServer(configurationProvider.getPort(), logger);
 

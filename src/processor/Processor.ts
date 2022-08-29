@@ -2,9 +2,9 @@ import { FlickrMedia, FlickrPhotoset } from "flickr-sdk";
 import { Logger } from "../config/Logger";
 import { Media, MediaProcessError } from "../entities/Media";
 import { FlickrFacade } from "../flickr/FlickrFacade";
-import { IMediaStore } from "./IMediaStore";
-import { MediaLibrary } from "./MediaLibrary";
+import { IMediaStore } from "../mediaLibrary/IMediaStore";
 import { dHash } from "dhashjs"
+import { IMediaLibrary } from "../mediaLibrary/IMediaLibrary";
 
 const forbiddenChars = new RegExp("[\/><:\\\\|?*]", "g")
 
@@ -18,7 +18,7 @@ type AsyncExecutor = () => Promise<void>
 
 export class Processor {
   constructor(private flickr: FlickrFacade,
-    private library: MediaLibrary<FlickrMedia, FlickrPhotoset>,
+    private library: IMediaLibrary<FlickrMedia, FlickrPhotoset>,
     private store: IMediaStore<FlickrMedia>,
     private logger: Logger) {
 
@@ -85,7 +85,7 @@ export class Processor {
 
   private async downloadMissingMedia() {
     this.logger.log(`### Download missing media ###`)
-    const missingMedia = this.library.getUnuploadedMedia()
+    const missingMedia = await this.library.getUnuploadedMedia()
     let i = 0
     for (let media of missingMedia) {
       this.logger.log(`Downloading ${i++}/${missingMedia.length} ${media.originalName} (${media.title} - ${media.id})`)
@@ -107,7 +107,7 @@ export class Processor {
     try {
       media.location = await this.store.downloadMedia(media);
       media.downloaded = true;
-      await this.library.saveMediaList();
+      await this.library.updateMediaAsync(media);
     }
     catch (err) {
       this.logger.error(`Got error ${err} while downloading ${media.id} (${media.title})`);
@@ -119,7 +119,12 @@ export class Processor {
     const maxUploadDate = await this.library.getMaxUploadDate()
     this.logger.debug(`Taking everything uploaded after ${maxUploadDate ? new Date(maxUploadDate) : 'beginning of time'}`)
     const mediaList = await this.flickr.listMedia(maxUploadDate)
-    const missingMedia = mediaList.filter(media => this.library.getMedia(media.id) === undefined)
+    const missingMedia = [] as Media<FlickrMedia>[];
+    for(let media of mediaList) {
+      if (await this.library.getMediaAsync(media.id) === undefined) {
+        missingMedia.push(media);
+      }
+    }
     await this.library.addMedias(missingMedia)
   }
 
@@ -128,19 +133,18 @@ export class Processor {
     const sets = await this.flickr.listSets()
     const mediaSetsInStore = await this.library.getMediaSets()
     // Update existing sets
-    sets.forEach(media => {
+    for(let media of sets) {
       const setInStore = mediaSetsInStore.find(setInStore => setInStore.id === media.id)
       if (setInStore && setInStore.lastUpdate !== media.lastUpdate) {
         this.logger.debug(`Media set '${setInStore.name}' changed, saving new lastUpdate.`)
         setInStore.lastUpdate = media.lastUpdate
+        await this.library.updateMediaSetAsync(setInStore);
       }
-    })
+    }
     const missingSets = sets.filter(set => mediaSetsInStore.find(setInStore => setInStore.id === set.id) === undefined)
     this.logger.debug(`Adding ${missingSets.length} missing sets`)
     if (missingSets.length !== 0) {
-      await this.library.addMediaSets(missingSets)
-    } else {
-      await this.library.saveMediaSetList()
+      await this.library.addMediaSetsAsync(missingSets)
     }
   }
 
@@ -154,7 +158,7 @@ export class Processor {
         const content = await this.flickr.listPhotosInSet(set.record.id)
         set.mediaIds = content.map(content => content.id)
         set.contentAsOf = set.lastUpdate
-        await this.library.saveMediaSetList()
+        await this.library.updateMediaSetAsync(set);
       }
       catch (err) {
         this.logger.error(`Error while retrieving content of set ${set.name} (${set.id}): ${(err as Error).message}`)
@@ -173,7 +177,7 @@ export class Processor {
         let content: Buffer
         if (await this.executeWithErrorProtection(media, errorCodes.RETRIEVE_FROM_STORAGE, async () => { content = await this.store.getMediaContent(media) }) &&
           await this.executeWithErrorProtection(media, errorCodes.CALCULATE_PICTURE_HASH, async () => { media.hash = await dHash.calculateHashAsync(content) })) {
-          this.library.saveMediaList()
+          this.library.updateMediaAsync(media)
         }
       }
     }
