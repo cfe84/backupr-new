@@ -116,7 +116,7 @@ export class Processor {
 
   private async syncMediaList() {
     this.logger.log(`### Sync media list ###`)
-    const maxUploadDate = this.library.getMaxUploadDate()
+    const maxUploadDate = await this.library.getMaxUploadDate()
     this.logger.debug(`Taking everything uploaded after ${maxUploadDate ? new Date(maxUploadDate) : 'beginning of time'}`)
     const mediaList = await this.flickr.listMedia(maxUploadDate)
     const missingMedia = mediaList.filter(media => this.library.getMedia(media.id) === undefined)
@@ -146,7 +146,7 @@ export class Processor {
 
   private async syncAlbumContent() {
     this.logger.log(`### Sync media set content ###`)
-    const sets = this.library.getMediaSets().filter(set => set.contentAsOf !== set.lastUpdate)
+    const sets = await this.library.getOutdatedMediasetsAsync()
     let i = 0
     for (let set of sets) {
       this.logger.debug(`Updating media set ${i++} / ${sets.length} '${set.name}'`)
@@ -165,7 +165,7 @@ export class Processor {
 
   private async hashMedia() {
     this.logger.log(`### Calculate media hash ###`)
-    const mediaMissingHash = this.library.getAllMedia().filter(media => !media.hash)
+    const mediaMissingHash = await this.library.getMediaWithNoHashAsync()
     let i = 0
     for (let media of mediaMissingHash) {
       if (media.type === "photo") {

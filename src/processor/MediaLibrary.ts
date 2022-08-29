@@ -1,4 +1,5 @@
 import * as fs from "fs"
+import * as fsAsync from "fs/promises"
 import * as path from "path"
 import { Media } from "../entities/Media"
 import { MediaSet } from "../entities/MediaSet"
@@ -8,6 +9,7 @@ type Dictionary<T> = { [key: string]: T }
 export class MediaLibrary<TMedia, TMediaSet> {
   static load<TMedia, TMediaSet>(storePath: string): MediaLibrary<TMedia, TMediaSet> {
     const mediaFile = path.join(storePath, "media.json")
+    const tmpMediaFile = path.join(storePath, "tmp-media.json")
     let media = {}
     if (!fs.existsSync(storePath)) {
       fs.mkdirSync(storePath)
@@ -16,24 +18,29 @@ export class MediaLibrary<TMedia, TMediaSet> {
     }
 
     const mediaSetFile = path.join(storePath, "mediasets.json")
+    const tmpMediaSetFile = path.join(storePath, "tmp-mediasets.json")
     let mediasets = {}
     if (fs.existsSync(mediaSetFile)) {
       mediasets = JSON.parse(fs.readFileSync(mediaSetFile).toString())
     }
-    return new MediaLibrary(media, mediaFile, mediasets, mediaSetFile)
+    return new MediaLibrary(media, mediaFile, tmpMediaFile, mediasets, mediaSetFile, tmpMediaSetFile)
   }
   private constructor(private mediaList: Dictionary<Media<TMedia>>,
     private mediaFile: string,
+    private tmpMediaFile: string,
     private mediaSetList: Dictionary<MediaSet<TMediaSet>>,
-    private mediaSetFile: string) {
+    private mediaSetFile: string,
+    private tmpMediaSetFile: string) {
 
   }
 
   public async saveMediaList() {
-    fs.writeFileSync(this.mediaFile, JSON.stringify(this.mediaList, null, 2))
+    await fsAsync.writeFile(this.tmpMediaFile, JSON.stringify(this.mediaList, null, 2))
+    await fsAsync.rename(this.tmpMediaFile, this.mediaFile);
   }
   public async saveMediaSetList() {
-    fs.writeFileSync(this.mediaSetFile, JSON.stringify(this.mediaSetList, null, 2))
+    await fsAsync.writeFile(this.tmpMediaSetFile, JSON.stringify(this.mediaSetList, null, 2))
+    await fsAsync.rename(this.tmpMediaSetFile, this.mediaSetFile);
   }
 
   async addMedia(media: Media<TMedia>) {
@@ -52,15 +59,15 @@ export class MediaLibrary<TMedia, TMediaSet> {
     return this.mediaList[id]
   }
 
-  getAllMedia() {
-    return Object.values(this.mediaList)
+  async getMediaWithNoHashAsync(): Promise<Media<TMedia>[]> {
+    return Object.values(this.mediaList).filter(media => !media.hash)
   }
 
   getUnuploadedMedia() {
     return Object.values(this.mediaList).filter(media => !media.downloaded)
   }
 
-  getMaxUploadDate(): number | undefined {
+  async getMaxUploadDate(): Promise<number | undefined> {
     if (Object.values(this.mediaList).length === 0) {
       return undefined
     }
@@ -74,7 +81,11 @@ export class MediaLibrary<TMedia, TMediaSet> {
     await this.saveMediaSetList()
   }
 
-  getMediaSets(): MediaSet<TMediaSet>[] {
+  async getMediaSets(): Promise<MediaSet<TMediaSet>[]> {
     return Object.values(this.mediaSetList)
+  }
+
+  async getOutdatedMediasetsAsync(): Promise<MediaSet<TMediaSet>[]> {
+    return (await this.getMediaSets()).filter(set => set.contentAsOf !== set.lastUpdate)
   }
 }
