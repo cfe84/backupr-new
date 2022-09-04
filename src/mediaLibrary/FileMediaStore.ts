@@ -23,6 +23,13 @@ export class FileMediaStore<T> implements IMediaStore<T> {
   }
 
   private getFilenameForMedia(media: Media<T>): string {
+    if (!media.originalName) {
+      media.originalName = Math.floor(Math.random() * 10000000) + ".jpg";
+    }
+    if (media.originalName.length > 64) {
+      media.originalName = media.originalName.substring(0, 64);
+    }
+    media.originalName = media.originalName.replace(/[\/<>:"\[\]|?*]/g, "_")
     return `${new Date(media.takenDate).toISOString().substring(0, 10)}-${media.id}-${media.originalName}`
   }
 
