@@ -17,11 +17,11 @@ const errorCodes = {
 type AsyncExecutor = () => Promise<void>
 
 export class Processor {
-  constructor(private flickr: FlickrFacade,
+  constructor(
+    private flickr: FlickrFacade,
     private library: IMediaLibrary<FlickrMedia, FlickrPhotoset>,
     private store: IMediaStore<FlickrMedia>,
     private logger: Logger) {
-
   }
 
   async process() {
@@ -29,7 +29,7 @@ export class Processor {
     await this.downloadMissingMedia()
     await this.syncAlbums()
     await this.syncAlbumContent()
-    await this.hashMedia()
+    // await this.hashMedia()
   }
 
   private getErrorOfType(media: Media<FlickrMedia>, errorCode: string): MediaProcessError {

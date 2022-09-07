@@ -24,4 +24,8 @@ export class EnvironmentConfigurationProvider {
   getPort(): number {
     return Number.parseInt(process.env.PORT || "8080")
   }
+
+  getConflictBehavior(): "replace" | "keep" {
+    return process.env.CONFLICT_BEHAVIOR === "keep" ? "keep" : "replace"
+  }
 }

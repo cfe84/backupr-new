@@ -7,7 +7,7 @@ import { EnvironmentConfigurationProvider } from "./config/EnvironmentConfigurat
 import { FlickrFacade } from "./flickr/FlickrFacade"
 import { Processor } from "./processor/Processor";
 import { FileMediaLibrary } from "./mediaLibrary/FileMediaLibrary";
-import { FileMediaStore } from "./mediaLibrary/FileMediaStore";
+import { FileMediaStore, FileMediaStoreConfig } from "./mediaLibrary/FileMediaStore";
 import path from "path";
 import { Logger } from "./config/Logger";
 import { WebServer } from "./webserver/WebServer";
@@ -23,7 +23,11 @@ if (!storePath) {
   exit(1)
 }
 const library = FileMediaLibrary.load<FlickrMedia, FlickrPhotoset>(storePath)
-const store = new FileMediaStore(path.join(storePath, "media"), logger)
+const storeConfig: FileMediaStoreConfig = {
+  root: path.join(storePath, "media"),
+  conflictBehavior: configurationProvider.getConflictBehavior()
+};
+const store = new FileMediaStore(storeConfig, logger);
 const server = new WebServer(configurationProvider.getPort(), logger);
 
 

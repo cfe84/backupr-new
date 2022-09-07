@@ -3,18 +3,21 @@ import { IMediaStore } from "./IMediaStore";
 import * as fs from "fs";
 import * as path from "path";
 import * as https from "https";
-import { resolve } from "path";
-import { rejects } from "assert";
 import { Logger } from "../config/Logger";
 
+export interface FileMediaStoreConfig {
+  root: string,
+  conflictBehavior: "keep" | "replace"
+}
+
 export class FileMediaStore<T> implements IMediaStore<T> {
-  constructor(private root: string, private logger: Logger) {
+  constructor(private config: FileMediaStoreConfig, private logger: Logger) {
 
   }
 
   async getMediaContent(media: Media<T>): Promise<Buffer> {
     const relativeFilePath = this.getMediaFilePath(media)
-    const absoluteFilePath = path.join(this.root, relativeFilePath)
+    const absoluteFilePath = path.join(this.config.root, relativeFilePath)
     return fs.readFileSync(absoluteFilePath)
   }
 
@@ -24,7 +27,7 @@ export class FileMediaStore<T> implements IMediaStore<T> {
 
   private getFilenameForMedia(media: Media<T>): string {
     if (!media.originalName) {
-      media.originalName = Math.floor(Math.random() * 10000000) + ".jpg";
+      media.originalName = media.takenDate + "-" + media.title + (media.type === "photo" ? ".jpg" : ".mp4");
     }
     if (media.originalName.length > 64) {
       media.originalName = media.originalName.substring(0, 64);
@@ -61,14 +64,19 @@ export class FileMediaStore<T> implements IMediaStore<T> {
 
   async downloadMedia(media: Media<T>): Promise<string> {
     const relativeFolder = this.getFolderForMedia(media)
-    const absoluteFolder = path.join(this.root, relativeFolder)
+    const absoluteFolder = path.join(this.config.root, relativeFolder)
     fs.mkdirSync(absoluteFolder, { recursive: true })
     const relativeFilePath = this.getMediaFilePath(media)
-    const absoluteFilePath = path.join(this.root, relativeFilePath)
+    const absoluteFilePath = path.join(this.config.root, relativeFilePath)
 
     if (fs.existsSync(absoluteFilePath)) {
-      this.logger.warn(`File existed and was removed: '${absoluteFilePath}'`)
-      fs.unlinkSync(absoluteFilePath)
+      if (this.config.conflictBehavior === "replace"){
+        this.logger.warn(`File existed and was removed: '${absoluteFilePath}'`)
+        fs.unlinkSync(absoluteFilePath)
+      } else {
+        this.logger.warn(`File existed and was kept: '${absoluteFilePath}'`)
+        return relativeFilePath;
+      }
     }
     try {
       await this.download(media.url, absoluteFilePath)
