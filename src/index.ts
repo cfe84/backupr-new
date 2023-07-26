@@ -28,10 +28,13 @@ const storeConfig: FileMediaStoreConfig = {
   conflictBehavior: configurationProvider.getConflictBehavior()
 };
 const store = new FileMediaStore(storeConfig, logger);
-const server = new WebServer(configurationProvider.getPort(), logger);
+const server = new WebServer(configurationProvider.getPort(), {
+  logger,
+  mediaLibrary: library,
+  mediaStore: store
+});
 
-
-async function run() {
+async function sync() {
   const login = () => {
     facade.loginAsync().then(token => {
       console.log(`Add this to your env and come back:
@@ -46,9 +49,18 @@ NSID=${token.user_nsid}
   if (!await facade.isLoggedInAsync()) {
     login()
   } else {
-    server.start();
     const processor = new Processor(facade, library, store, logger)
     await processor.process()
   }
 }
+
+async function run() {
+  server.start();
+  if (process.env["SYNC"] !== "false") {
+    await sync();
+  }
+}
+
+
+
 run().finally()

@@ -1,5 +1,4 @@
 import * as fs from "fs"
-import * as fsAsync from "fs/promises"
 import * as path from "path"
 import { Media } from "../entities/Media"
 import { MediaSet } from "../entities/MediaSet"
@@ -36,13 +35,13 @@ export class FileMediaLibrary<TMedia, TMediaSet> implements IMediaLibrary<TMedia
   }
 
   private async saveMediaListAsync() {
-    await fsAsync.writeFile(this.tmpMediaFile, JSON.stringify(this.mediaList, null, 2))
-    await fsAsync.rename(this.tmpMediaFile, this.mediaFile);
+    fs.writeFileSync(this.tmpMediaFile, JSON.stringify(this.mediaList, null, 2))
+    fs.renameSync(this.tmpMediaFile, this.mediaFile);
   }
 
   private async saveMediaSetListAsync() {
-    await fsAsync.writeFile(this.tmpMediaSetFile, JSON.stringify(this.mediaSetList, null, 2))
-    await fsAsync.rename(this.tmpMediaSetFile, this.mediaSetFile);
+    fs.writeFileSync(this.tmpMediaSetFile, JSON.stringify(this.mediaSetList, null, 2))
+    fs.renameSync(this.tmpMediaSetFile, this.mediaSetFile);
   }
 
   async updateMediaAsync(media: Media<TMedia>) {

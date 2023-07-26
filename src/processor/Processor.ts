@@ -119,13 +119,15 @@ export class Processor {
     const maxUploadDate = await this.library.getMaxUploadDate()
     this.logger.debug(`Taking everything uploaded after ${maxUploadDate ? new Date(maxUploadDate) : 'beginning of time'}`)
     const mediaList = await this.flickr.listMedia(maxUploadDate)
+    this.logger.debug(`Retrieved ${mediaList.length} media`);
     const missingMedia = [] as Media<FlickrMedia>[];
-    for(let media of mediaList) {
+    for (let media of mediaList) {
       if (await this.library.getMediaAsync(media.id) === undefined) {
         missingMedia.push(media);
       }
     }
     await this.library.addMedias(missingMedia)
+    this.logger.debug(`Finished retrieving media`);
   }
 
   private async syncAlbums() {
@@ -133,7 +135,7 @@ export class Processor {
     const sets = await this.flickr.listSets()
     const mediaSetsInStore = await this.library.getMediaSets()
     // Update existing sets
-    for(let media of sets) {
+    for (let media of sets) {
       const setInStore = mediaSetsInStore.find(setInStore => setInStore.id === media.id)
       if (setInStore && setInStore.lastUpdate !== media.lastUpdate) {
         this.logger.debug(`Media set '${setInStore.name}' changed, saving new lastUpdate.`)
