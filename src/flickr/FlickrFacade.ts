@@ -6,6 +6,8 @@ import { Media, MediaType } from "../entities/Media";
 import { MediaSet } from "../entities/MediaSet";
 import { FlickrClientCredentials, FlickrToken } from "./FlickClientCredentials";
 import { FlickrRequester, FlickrStreams } from "./FlickrRequester";
+import { Retry } from "../resilience/Retry";
+import { ExponentialBackoff } from "../resilience/ExponentialBackoff";
 
 export class FlickrFacade {
   private flickr: Flickr | undefined
@@ -78,16 +80,23 @@ export class FlickrFacade {
     if (!this.flickr || !this.token) {
       throw Error(`Called listMedia without authentication`)
     }
+    const flickr = this.flickr;
+    const token = this.token;
     if (!!minDate) {
       minDate = minDate / 1000 // Flickr takes dates / 1000
     }
     let pageCount = 1
     let media: FlickrMedia[] = []
     while (true) {
-      const page = (await this.flickr.people.getPhotos({ user_id: this.token.nsid, page: pageCount, extras: "url_o,date_upload,date_taken,media", min_upload_date: minDate })).body
-      media = media.concat(page.photos.photo)
-      this.logger.debug(`Retrieved media page ${page.photos.page} / ${page.photos.pages}, containing ${page.photos.total} photos`)
-      if (page.photos.page >= page.photos.pages) {
+      const retry = new Retry(5, (new ExponentialBackoff()).backoffAsync);
+      let finished = false;
+      await retry.async<void>(async () => {
+        const page = (await flickr.people.getPhotos({ user_id: token.nsid, page: pageCount, extras: "url_o,date_upload,date_taken,media", min_upload_date: minDate })).body
+        media = media.concat(page.photos.photo)
+        this.logger.debug(`Retrieved media page ${page.photos.page} / ${page.photos.pages}, containing ${page.photos.total} photos`)
+        finished = page.photos.page >= page.photos.pages;
+      })
+      if (finished) {
         break;
       }
       pageCount++

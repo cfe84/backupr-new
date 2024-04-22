@@ -5,6 +5,8 @@ import { FlickrFacade } from "../flickr/FlickrFacade";
 import { IMediaStore } from "../mediaLibrary/IMediaStore";
 import { dHash } from "dhashjs"
 import { IMediaLibrary } from "../mediaLibrary/IMediaLibrary";
+import { Retry } from "../resilience/Retry";
+import { ExponentialBackoff } from "../resilience/ExponentialBackoff";
 
 const forbiddenChars = new RegExp("[\/><:\\\\|?*]", "g")
 
@@ -105,7 +107,8 @@ export class Downloader {
 
   private async downloadMedia(media: Media<FlickrMedia>) {
     try {
-      media.location = await this.store.downloadMedia(media);
+      const retry = new Retry(5, new ExponentialBackoff().backoffAsync);
+      media.location = await retry.async<string>(() => this.store.downloadMedia(media));
       media.downloaded = true;
       await this.library.updateMediaAsync(media);
     }
