@@ -1,4 +1,5 @@
 import { FlickrClientCredentials, FlickrToken } from "../flickr/FlickClientCredentials";
+import { ImmichConfig } from "../immich/ImmichConfig";
 
 export class EnvironmentConfigurationProvider {
 
@@ -17,8 +18,12 @@ export class EnvironmentConfigurationProvider {
     }
   }
 
-  getStore(): string | undefined {
-    return process.env.REPOSITORY
+  getStore(): string {
+    const repository = process.env.REPOSITORY;
+    if (!repository) {
+      throw Error("No REPOSITORY defined in environment");
+    }
+    return repository;
   }
 
   getPort(): number {
@@ -27,5 +32,23 @@ export class EnvironmentConfigurationProvider {
 
   getConflictBehavior(): "replace" | "keep" {
     return process.env.CONFLICT_BEHAVIOR === "keep" ? "keep" : "replace"
+  }
+
+  getStorageService(): "immich" | undefined {
+    const service = process.env.STORAGE_SERVICE;
+    if (["immich", undefined].indexOf(service) < 0) {
+      throw Error(`Invalid STORAGE_SERVICE: ${service}`);
+    }
+    return service as any;
+  }
+
+  getImmichConfig(): ImmichConfig {
+    if (!process.env.IMMICH_API || !process.env.IMMICH_TOKEN) {
+      throw Error("Missing Immich config in environment (IMMICH_API and IMMICH_TOKEN)")
+    }
+    return {
+      apiUrl: process.env.IMMICH_API,
+      token: process.env.IMMICH_TOKEN,
+    }
   }
 }

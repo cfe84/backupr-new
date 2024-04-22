@@ -9,7 +9,9 @@
     "clean": "rimraf dist/",
     "rebuild": "npm run clean && npm run build",
     "prepublish": "npm run rebuild",
-    "start": "npm run build && node dist/index.js"
+    "start": "npm run build && node dist/index.js",
+    "download": "npm run build && node dist/download.js",
+    "upload": "npm run build && node dist/upload.js"
   },
   "author": "",
   "license": "ISC",

@@ -5,6 +5,7 @@ export interface MediaSet<T> {
   name: string,
   primaryPhotoId: string,
   description: string,
-  mediaIds: string[]
-  record: T
+  mediaIds: string[],
+  record: T,
+  externalId?: string,
 }

@@ -16,7 +16,7 @@ const errorCodes = {
 
 type AsyncExecutor = () => Promise<void>
 
-export class Processor {
+export class Downloader {
   constructor(
     private flickr: FlickrFacade,
     private library: IMediaLibrary<FlickrMedia, FlickrPhotoset>,
@@ -85,7 +85,7 @@ export class Processor {
 
   private async downloadMissingMedia() {
     this.logger.log(`### Download missing media ###`)
-    const missingMedia = await this.library.getUnuploadedMedia()
+    const missingMedia = await this.library.getNonDownloadedMedia()
     let i = 0
     for (let media of missingMedia) {
       this.logger.log(`Downloading ${i++}/${missingMedia.length} ${media.originalName} (${media.title} - ${media.id})`)
@@ -120,7 +120,7 @@ export class Processor {
     this.logger.debug(`Taking everything uploaded after ${maxUploadDate ? new Date(maxUploadDate) : 'beginning of time'}`)
     const mediaList = await this.flickr.listMedia(maxUploadDate)
     const missingMedia = [] as Media<FlickrMedia>[];
-    for(let media of mediaList) {
+    for (let media of mediaList) {
       if (await this.library.getMediaAsync(media.id) === undefined) {
         missingMedia.push(media);
       }
@@ -133,7 +133,7 @@ export class Processor {
     const sets = await this.flickr.listSets()
     const mediaSetsInStore = await this.library.getMediaSets()
     // Update existing sets
-    for(let media of sets) {
+    for (let media of sets) {
       const setInStore = mediaSetsInStore.find(setInStore => setInStore.id === media.id)
       if (setInStore && setInStore.lastUpdate !== media.lastUpdate) {
         this.logger.debug(`Media set '${setInStore.name}' changed, saving new lastUpdate.`)

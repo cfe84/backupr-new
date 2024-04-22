@@ -1,7 +1,7 @@
 import * as dotenv from "dotenv"
 dotenv.config()
 
-import { FlickrMedia, FlickrMediaList, FlickrPhotoset } from "flickr-sdk";
+import { FlickrMedia, FlickrPhotoset } from "flickr-sdk";
 import { exit } from "process";
 import { EnvironmentConfigurationProvider } from "./config/EnvironmentConfigurationProvider";
 import { FlickrFacade } from "./flickr/FlickrFacade"
@@ -10,7 +10,6 @@ import { FileMediaLibrary } from "./mediaLibrary/FileMediaLibrary";
 import { FileMediaStore, FileMediaStoreConfig } from "./mediaLibrary/FileMediaStore";
 import path from "path";
 import { Logger } from "./config/Logger";
-import { WebServer } from "./webserver/WebServer";
 
 const configurationProvider = new EnvironmentConfigurationProvider()
 
@@ -28,8 +27,6 @@ const storeConfig: FileMediaStoreConfig = {
   conflictBehavior: configurationProvider.getConflictBehavior()
 };
 const store = new FileMediaStore(storeConfig, logger);
-const server = new WebServer(configurationProvider.getPort(), logger);
-
 
 async function run() {
   const login = () => {
@@ -46,7 +43,6 @@ NSID=${token.user_nsid}
   if (!await facade.isLoggedInAsync()) {
     login()
   } else {
-    server.start();
     const processor = new Downloader(facade, library, store, logger)
     await processor.process()
   }

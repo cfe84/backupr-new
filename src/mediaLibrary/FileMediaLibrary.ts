@@ -69,8 +69,12 @@ export class FileMediaLibrary<TMedia, TMediaSet> implements IMediaLibrary<TMedia
     return Object.values(this.mediaList).filter(media => !media.hash)
   }
 
-  async getUnuploadedMedia(): Promise<Media<TMedia>[]> {
+  async getNonDownloadedMedia(): Promise<Media<TMedia>[]> {
     return Object.values(this.mediaList).filter(media => !media.downloaded)
+  }
+
+  async getNonUploadedMedia(): Promise<Media<TMedia>[]> {
+    return Object.values(this.mediaList).filter(media => !media.externalId);
   }
 
   async getMaxUploadDate(): Promise<number | undefined> {
@@ -97,5 +101,9 @@ export class FileMediaLibrary<TMedia, TMediaSet> implements IMediaLibrary<TMedia
 
   async getOutdatedMediasetsAsync(): Promise<MediaSet<TMediaSet>[]> {
     return (await this.getMediaSets()).filter(set => set.contentAsOf !== set.lastUpdate)
+  }
+
+  async getNonUploadedMediaSetsAsync(): Promise<MediaSet<TMediaSet>[]> {
+    return (await this.getMediaSets()).filter(set => !set.externalId);
   }
 }
